@@ -12,7 +12,13 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:400 15px/1.45 'Inter',system-ui,sans-serif}
 .stage{display:grid;grid-template-columns:auto minmax(280px,340px);gap:36px;justify-content:center;align-items:start;padding:28px 20px}
-canvas{height:min(86vh,860px);aspect-ratio:9/16;max-width:100%;border-radius:12px;display:block;background:#f1f1ec}
+canvas{height:min(78vh,820px);aspect-ratio:9/16;max-width:100%;border-radius:12px;display:block;background:#f1f1ec}
+.vid{position:sticky;top:20px;display:flex;flex-direction:column;gap:12px}
+.player{display:flex;align-items:center;gap:12px}
+.player input[type=range]{flex:1;min-width:0}
+.player .btn{padding:8px 18px}
+#tm{font:12px 'JetBrains Mono',monospace;color:var(--mut);white-space:nowrap}
+.row select{flex:1;min-width:0;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--pan);color:var(--fg)}
 aside{display:flex;flex-direction:column;gap:22px}
 h1{font-size:28px;font-weight:800;letter-spacing:-.04em;margin:0;text-transform:lowercase;line-height:1}
 .brand{display:flex;align-items:center;gap:12px}
@@ -47,16 +53,17 @@ button:focus-visible,input:focus-visible{outline:2px solid #7a4fd8;outline-offse
 .acc[open] summary::after{transform:rotate(-135deg)}
 .acc summary:focus-visible{outline:2px solid #7a4fd8;outline-offset:4px;border-radius:4px}
 @media (prefers-reduced-motion:reduce){.acc summary::after{transition:none}}
-@media (max-width:760px){.stage{grid-template-columns:1fr}canvas{height:auto;width:min(100%,420px);margin:0 auto}}
+@media (max-width:760px){.stage{grid-template-columns:1fr;padding-top:0}.vid{top:0;z-index:5;background:var(--bg);padding:8px 0;align-items:center}canvas{height:min(44vh,420px);width:auto}.player{width:100%;max-width:420px}}
 </style></head>
 <body>
 <main class="stage">
-<canvas id="cv" width="1080" height="1920"></canvas>
+<div class='vid'><canvas id="cv" width="1080" height="1920"></canvas><div class='player'><button id="pl" class="btn ghost" disabled>Play</button><input id="sc" type="range" min="0" max="1" step=".01" value="0" disabled aria-label='Seek'><span id="tm">0:00</span></div></div>
 <aside>
  <div><div class='brand'><svg viewBox='0 0 40 60' width='26' height='39' aria-hidden='true'><rect width='40' height='60' rx='20' fill='#c4ee45'/><path d='M10.8 48L29.2 12' stroke='#16171a' stroke-width='10.4' stroke-linecap='round' fill='none'/></svg><h1>loopline</h1></div><p class="sub">Add an MP3 and MIDI files. Get a 9:16 video.</p></div>
  <section>
-  <div class="btns"><button id="pl" class="btn ghost" disabled>Play</button><button id="ex" class="btn" disabled>Export video</button><button id="sv" class="btn ghost" hidden>Save video</button></div>
-  <div class="row" style="margin-top:12px"><input id="sc" type="range" min="0" max="1" step=".01" value="0" style="flex:1" disabled><span id="tm">0:00</span></div>
+  <div class="btns"><button id="ex" class="btn" disabled>Export video</button><button id="sv" class="btn ghost" hidden>Save video</button></div>
+  
+  <div class="row" style="margin:12px 0 0"><label for="fps">Frame rate</label><select id="fps"><option value="60" selected>60 fps</option><option value="30">30 fps</option></select></div>
   <div id="st"></div>
   <p class="hint">Export plays the track in real time and records it. Keep this tab in front until it finishes.</p>
  </section>
@@ -110,7 +117,7 @@ Object.entries(MT).forEach(([k,v])=>Object.assign(TH[k],{mt:v[0],nd:v[1]}));
 TH.mini={n:'Meters',bg:'#000',card:'#07080b',ink:'#e6eaf6',mut:'#6f7690',grid:'#1b1e29',row:'#0d0f15',notes:['#a8b6dd','#ff8a1a','#e8412b','#6fd3a8'],pill:{s:'#a8b6dd',t:'#a8b6dd'},ph:'#ff8a1a',rad:.15,mt:'#a8b6dd',nd:'#ff8a1a'};
 const NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'],BK=[1,3,6,8,10];
 const nn=p=>NN[p%12]+Math.floor(p/12);
-let tk='rack',lay='roll',tS=0,tD=90,GO=0,BPB=4,safe=false,MS=['spec','lufs'],mix,anM,anL,anR,anK,fM,tM,tL,tR,tK,sr=48000,ME=0,lvL=-90,lvR=-90,vu=-20,lu=-70,ctx,spk,dst,buf,src,layers=[],lo=48,hi=84,t0=0,off=0,playing=false,dur=0,busy=false,out=null,drag=false;
+let tk='rack',lay='roll',tS=0,tD=90,GO=0,BPB=4,safe=false,fc=0,ft0=0,MS=['spec','lufs'],mix,anM,anL,anR,anK,fM,tM,tL,tR,tK,sr=48000,ME=0,lvL=-90,lvR=-90,vu=-20,lu=-70,ctx,spk,dst,buf,src,layers=[],lo=48,hi=84,t0=0,off=0,playing=false,dur=0,busy=false,out=null,drag=false;
 const st=m=>$('#st').textContent=m;
 const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 ['800 90px Inter','600 30px Inter','600 30px "JetBrains Mono"','400 22px "JetBrains Mono"'].forEach(f=>document.fonts&&document.fonts.load(f));
@@ -224,8 +231,8 @@ function drawUI(t){
  if(MS.length)drawMeters(t,th);
  const pr=Math.max(0,Math.min(1,(t-tS)/Math.max(.01,tE()-tS)));g.globalAlpha=1;g.fillStyle=th.grid;rr(RX,1590,RW,6,3);g.fillStyle=th.ph;rr(RX,1590,RW*pr,6,3);
  g.fillStyle=th.mut;g.font=`400 26px ${MONO}`;g.textAlign='left';g.fillText(fmt(t-tS),RX,1646);g.textAlign='right';g.fillText(fmt(tE()-tS),RX+RW,1646);
- let lx=RX;g.textAlign='left';g.font=`600 28px ${SANS}`;
- layers.forEach(l=>{g.fillStyle=l.color;g.beginPath();g.arc(lx+10,1712,10,0,7);g.fill();g.fillStyle=th.ink;g.fillText(l.name,lx+30,1722);lx+=g.measureText(l.name).width+64});
+ let lx=RX,ly=1712;g.textAlign='left';g.font=`600 28px ${SANS}`;
+ layers.forEach(l=>{const nm=l.name.length>22?l.name.slice(0,21)+'…':l.name,w=g.measureText(nm).width+30;if(lx>RX&&lx+w>RX+RW){lx=RX;ly+=44}g.fillStyle=l.color;g.beginPath();g.arc(lx+10,ly,10,0,7);g.fill();g.fillStyle=th.ink;g.fillText(nm,lx+30,ly+10);lx+=w+34});
 }
 const sgW=240,sgH=120,sgd=new Uint8ClampedArray(sgW*sgH*4),sgc=document.createElement('canvas'),rb=new Uint16Array(sgH);
 sgc.width=sgW;sgc.height=sgH;const sgi=new ImageData(sgd,sgW,sgH);
@@ -324,19 +331,19 @@ function draw(t){
  drawUI(t);g.restore();
  endCard(t,th);
  if(safe&&!busy)drawSafe()}
-function loop(){const t=buf?cur():0;draw(t);if(!drag)$('#sc').value=t;$('#tm').textContent=buf?fmt(t-tS)+' / '+fmt(tE()-tS):'0:00';requestAnimationFrame(loop)}
+function loop(){const t=buf?cur():0;draw(t);if(busy)fc++;if(!drag)$('#sc').value=t;$('#tm').textContent=buf?fmt(t-tS)+' / '+fmt(tE()-tS):'0:00';requestAnimationFrame(loop)}
 loop();
 $('#ex').onclick=()=>{
  if(!buf||!layers.length)return;pause();off=tS;busy=true;out=null;$('#sv').hidden=true;ui();
- const types=['video/mp4;codecs=avc1,mp4a.40.2','video/webm;codecs=vp9,opus','video/webm'];
+ const types=['video/mp4;codecs=avc1,mp4a.40.2','video/webm;codecs=h264,opus','video/webm;codecs=vp9,opus','video/webm'];
  const mt=types.find(x=>MediaRecorder.isTypeSupported(x));if(!mt){busy=false;ui();return st('This browser cannot record video.')}
- const ext=mt.includes('mp4')?'mp4':'webm',stream=cv.captureStream(30);
+ const ext=mt.includes('mp4')?'mp4':'webm',FPS=+$('#fps').value||60,stream=cv.captureStream(FPS);
  dst.stream.getAudioTracks().forEach(k=>stream.addTrack(k));
- const chunks=[],rec=new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:10e6,audioBitsPerSecond:192e3});
+ const chunks=[],rec=new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:FPS>45?16e6:10e6,audioBitsPerSecond:192e3});
  rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
  rec.onstop=()=>{spk.gain.value=1;busy=false;out={blob:new Blob(chunks,{type:mt}),name:($('#nm').value||'reel').replace(/[^\w\- ]+/g,'')+'.'+ext};
-  $('#sv').hidden=false;st('Done. Save your '+ext.toUpperCase()+' ('+(out.blob.size/1048576).toFixed(1)+' MB).');ui()};
- spk.gain.value=0;rec.start();play();
+  $('#sv').hidden=false;const af=Math.round(fc/((performance.now()-ft0)/1000));st('Done. Save your '+ext.toUpperCase()+' ('+(out.blob.size/1048576).toFixed(1)+' MB, about '+af+' fps drawn).'+(af<FPS*.9?' The page could not keep up with '+FPS+' fps. Try 30 fps, fewer meters or a smaller window.':''));ui()};
+ spk.gain.value=0;fc=0;ft0=performance.now();rec.start();play();
  src.onended=()=>{playing=false;off=tE();setTimeout(()=>rec.stop(),600)};
  const tick=setInterval(()=>{if(busy)st('Recording '+fmt(cur())+' / '+fmt(dur)+'…');else clearInterval(tick)},500);
 };
